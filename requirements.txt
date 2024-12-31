@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+google-ads
+oauth2client
+gspread
+plotly
+plotly-express
+datetime
