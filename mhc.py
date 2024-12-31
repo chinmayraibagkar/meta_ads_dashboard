@@ -29,6 +29,8 @@ if uploaded_cred_file:
 uploaded_json_file = st.sidebar.file_uploader("Upload Google Sheets API credentials (JSON)", type=["json"])
 if uploaded_json_file:
     st.session_state['uploaded_json_file'] = uploaded_json_file
+else:
+    st.warning("Please upload Service API credentials JSON file to continue.")
 
 if st.session_state['uploaded_cred_file']:
     TOKEN = st.session_state['uploaded_cred_file']
