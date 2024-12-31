@@ -23,14 +23,20 @@ if uploaded_cred_file:
 
 if st.session_state['uploaded_cred_file']:
     TOKEN = st.session_state['uploaded_cred_file']
-    st.sidebar.success("✔️ Credentials loaded")
+    st.sidebar.success("✔️ cred.txt loaded")
 else:
     TOKEN = None
     st.warning("Please upload cred.txt to continue.")
 
+uploaded_json_file = st.sidebar.file_uploader("Upload sheetsapi.json", type=["json"])
+if uploaded_json_file:
+    with open("sheetsapi.json", "wb") as f:
+        f.write(uploaded_json_file.read())
+    st.sidebar.success("✔️ sheetsapi.json loaded successfully.")
+
 def get_mapping_ref(sheet_id, worksheet_title):
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("sheetsapi.json", scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_name(uploaded_json_file, scope)
     client = gspread.authorize(creds)
     st.success("Google Sheets credentials loaded successfully.")
     
