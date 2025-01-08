@@ -226,6 +226,7 @@ def main():
                 st.session_state.yesterday_data = pd.merge(st.session_state.yesterday_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
                 st.session_state.last_7_days_data = pd.merge(st.session_state.last_7_days_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
                 st.session_state.last_month_data = pd.merge(st.session_state.last_month_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
+                st.session_state.last_90d_data = pd.merge(st.session_state.last_90d_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
 
         # Debug information
         # if debug_mode:
@@ -248,26 +249,31 @@ def main():
             st.session_state.yesterday_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
             st.session_state.last_7_days_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
             st.session_state.last_month_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
+            st.session_state.last_90d_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
 
             # Clicks (all) to clicks
             st.session_state.yesterday_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
             st.session_state.last_7_days_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
             st.session_state.last_month_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
+            st.session_state.last_90d_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
 
             # Reporting Starts to Date
             st.session_state.yesterday_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
             st.session_state.last_7_days_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
             st.session_state.last_month_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
+            st.session_state.last_90d_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
 
             # Add column "Revenue" by multiplying "Website Purchase ROAS" with "Spend" and rounding
             st.session_state.yesterday_data['Revenue'] = (st.session_state.yesterday_data['Website purchase ROAS (return on ad spend)'] * st.session_state.yesterday_data['spend']).round()
             st.session_state.last_7_days_data['Revenue'] = (st.session_state.last_7_days_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_7_days_data['spend']).round() 
             st.session_state.last_month_data['Revenue'] = (st.session_state.last_month_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_month_data['spend']).round()
+            st.session_state.last_90d_data['Revenue'] = (st.session_state.last_90d_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_90d_data['spend']).round()
 
             # round off spend
             st.session_state.yesterday_data['spend'] = st.session_state.yesterday_data['spend'].round()
             st.session_state.last_7_days_data['spend'] = st.session_state.last_7_days_data['spend'].round()
             st.session_state.last_month_data['spend'] = st.session_state.last_month_data['spend'].round()
+            st.session_state.last_90d_data['spend'] = st.session_state.last_90d_data['spend'].round()
 
 
             # Display raw data tables
@@ -309,6 +315,119 @@ def main():
                             f"{((yesterday_clicks - weekly_avg_clicks)/weekly_avg_clicks)*100:.1f}%"
                             )
                             
+
+                        # Group data by Product categories and plot trendline for top 5 categories
+                        product_cat_metrics = st.session_state.last_month_data.groupby('Product Cat').agg({
+                            'spend': 'sum',
+                            'clicks': 'sum',
+                            'Revenue': 'sum'
+                        }).reset_index()
+                        product_cat_metrics['ROAS'] = (product_cat_metrics['Revenue'] / product_cat_metrics['spend']).round(2)
+                        product_cat_metrics = product_cat_metrics.sort_values('spend', ascending=False).head(5)
+
+                        # Calculate ROAS by Product Category for yesterday, last 7 days, and last 30 days
+                        df_yest = st.session_state.yesterday_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                        df_yest['ROAS_Yest'] = df_yest['Revenue'] / df_yest['spend']
+
+                        df_7 = st.session_state.last_7_days_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                        df_7['ROAS_7'] = df_7['Revenue'] / df_7['spend']
+
+                        df_30 = st.session_state.last_month_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                        df_30['ROAS_30'] = df_30['Revenue'] / df_30['spend']
+
+                        # Merge
+                        merged_roas = pd.merge(pd.merge(df_yest, df_7, on='Product Cat', how='outer'), df_30, on='Product Cat', how='outer')
+
+                        # Filter where Yesterday and 7-day ROAS both > 30-day ROAS
+                        categories_filtered = merged_roas[
+                            (merged_roas['ROAS_Yest'] > merged_roas['ROAS_30']) &
+                            (merged_roas['ROAS_7'] > merged_roas['ROAS_30'])
+                        ].copy()
+
+                        # Top 5 by 30-day ROAS
+                        categories_filtered = categories_filtered.sort_values('ROAS_30', ascending=False).head(5)
+
+                        # Day-wise ROAS trend for last 90 days
+                        df_90 = st.session_state.last_90d_data.copy()
+                        df_90_daywise = df_90.groupby(['Date','Product Cat'], as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                        df_90_daywise['ROAS'] = df_90_daywise['Revenue'] / df_90_daywise['spend']
+                        df_90_daywise = df_90_daywise[df_90_daywise['Product Cat'].isin(categories_filtered['Product Cat'])]
+                        fig = px.line(df_90_daywise, x='Date', y='ROAS', color='Product Cat',
+                                      title='Day-on-Day ROAS Trends (Top 5 Categories)')
+                        st.plotly_chart(fig)
+                        
+                        if st.checkbox("Show data for Categories with High ROAS"):
+                            st.subheader("Categories with High ROAS")
+                            st.dataframe(categories_filtered)
+
+                        # --------------------------------------------------------------------------------
+                        # New view for categories whose spend is greater than average of all categories
+                        # --------------------------------------------------------------------------------
+
+                        # Group data and calculate average spend
+                        if st.checkbox("Show Categories with Spends Above Average"):
+                            product_cat_metrics_avg = st.session_state.last_month_data.groupby('Product Cat').agg({
+                                'spend': 'sum',
+                                'clicks': 'sum',
+                                'Revenue': 'sum'
+                            }).reset_index()
+                            avg_spend = product_cat_metrics_avg['spend'].mean()
+
+                            # Keep only categories above the overall average spend
+                            product_cat_metrics_avg = product_cat_metrics_avg[product_cat_metrics_avg['spend'] > avg_spend].copy()
+                            product_cat_metrics_avg['ROAS'] = (product_cat_metrics_avg['Revenue'] / product_cat_metrics_avg['spend']).round(2)
+                            product_cat_metrics_avg = product_cat_metrics_avg.sort_values('spend', ascending=False).head(5)
+
+                            # Calculate ROAS by Product Category for yesterday, last 7 days, last 30 days
+                            df_yest_avg = st.session_state.yesterday_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                            df_yest_avg['ROAS_Yest'] = df_yest_avg['Revenue'] / df_yest_avg['spend']
+
+                            df_7_avg = st.session_state.last_7_days_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                            df_7_avg['ROAS_7'] = df_7_avg['Revenue'] / df_7_avg['spend']
+
+                            df_30_avg = st.session_state.last_month_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                            df_30_avg['ROAS_30'] = df_30_avg['Revenue'] / df_30_avg['spend']
+
+                            # Merge for the above-average categories
+                            merged_roas_avg = pd.merge(
+                                pd.merge(df_yest_avg, df_7_avg, on='Product Cat', how='outer'),
+                                df_30_avg,
+                                on='Product Cat',
+                                how='outer'
+                            )
+
+                            # Filter to keep only categories already above average spend and ROAS conditions
+                            categories_filtered_avg = merged_roas_avg[
+                                (merged_roas_avg['Product Cat'].isin(product_cat_metrics_avg['Product Cat']))
+                                & (merged_roas_avg['ROAS_Yest'] > merged_roas_avg['ROAS_30'])
+                                & (merged_roas_avg['ROAS_7'] > merged_roas_avg['ROAS_30'])
+                            ].copy()
+                            categories_filtered_avg = categories_filtered_avg.sort_values('ROAS_30', ascending=False).head(5)
+
+                            # Show day-wise ROAS trend for last 90 days for these categories
+                            df_90_avg = st.session_state.last_90d_data.copy()
+                            df_90_daywise_avg = df_90_avg.groupby(['Date', 'Product Cat'], as_index=False).agg({
+                                'spend': 'sum',
+                                'Revenue': 'sum'
+                            })
+                            df_90_daywise_avg['ROAS'] = df_90_daywise_avg['Revenue'] / df_90_daywise_avg['spend']
+                            df_90_daywise_avg = df_90_daywise_avg[
+                                df_90_daywise_avg['Product Cat'].isin(categories_filtered_avg['Product Cat'])
+                            ]
+
+                            fig_avg2 = px.line(
+                                df_90_daywise_avg,
+                                x='Date',
+                                y='ROAS',
+                                color='Product Cat',
+                                title='Day-on-Day ROAS Trends (Above Avg Spend Categories)'
+                            )
+                            st.plotly_chart(fig_avg2)
+
+                            if st.checkbox("Show data for Above Avg Spend + High ROAS Categories"):
+                                st.subheader("Top 5 Categories with High ROAS & Spend Above Average")
+                                st.dataframe(categories_filtered_avg)
+
                         # Dropdowns for filtering data in 4 columns
                         # First row of filters
                         col1, col2, col3, col4, col5 = st.columns(5)
@@ -412,9 +531,9 @@ def main():
                         daily_metrics['Date'] = pd.to_datetime(daily_metrics['Date']).dt.date
 
                         # Calculate CTR & CPM on the aggregated data
-                        daily_metrics['CTR'] = (daily_metrics['clicks'] / daily_metrics['Impressions']) * 100
-                        daily_metrics['CPM'] = (daily_metrics['spend'] / daily_metrics['Impressions']) * 1000
-                        daily_metrics['ROAS'] = (daily_metrics['Revenue'] / daily_metrics['spend'])
+                        daily_metrics['CTR'] = ((daily_metrics['clicks'] / daily_metrics['Impressions']) * 100).round(2)
+                        daily_metrics['CPM'] = ((daily_metrics['spend'] / daily_metrics['Impressions']) * 1000).round(2)
+                        daily_metrics['ROAS'] = (daily_metrics['Revenue'] / daily_metrics['spend']).round(2)
 
                         st.subheader("CTR & CPM for Last 30 Days")
                         fig = px.line(daily_metrics, x='Date', y=['CPM', 'CTR'])
@@ -429,6 +548,7 @@ def main():
                         )
                         fig.data[1].update(yaxis="y2")
                         st.plotly_chart(fig)
+                        daily_metrics['CTR'] = ((daily_metrics['clicks'] / daily_metrics['Impressions']) * 100).round(2).astype(str) + '%'
 
                         st.subheader("Spend, Revenue & ROAS for Last 30 Days")
                         fig = go.Figure()
@@ -456,7 +576,8 @@ def main():
                             date1_end = st.date_input("Select End Date 1", datetime.now())
                             
                             date_filter1 = (daily_metrics['Date'] >= date1_start) & (daily_metrics['Date'] <= date1_end)
-                            selected_date_metrics1 = daily_metrics[date_filter1]
+                            selected_date_metrics1 = daily_metrics[date_filter1].copy()
+                            selected_date_metrics1['CTR'] = selected_date_metrics1['CTR'].str.rstrip('%').astype(float)
                             
                             fig1 = px.line(selected_date_metrics1, x='Date', y=['CPM', 'CTR'])
                             fig1.update_layout(
@@ -490,6 +611,7 @@ def main():
                             
                             date_filter2 = (daily_metrics['Date'] >= date2_start) & (daily_metrics['Date'] <= date2_end)
                             selected_date_metrics2 = daily_metrics[date_filter2]
+                            selected_date_metrics2['CTR'] = selected_date_metrics2['CTR'].str.rstrip('%').astype(float)
                             
                             fig2 = px.line(selected_date_metrics2, x='Date', y=['CPM', 'CTR'])
                             fig2.update_layout(
@@ -623,9 +745,9 @@ def main():
                             'spend': 'sum',
                             'Revenue': 'sum'
                         }).reset_index()
-                        daily_metrics1['CTR'] = (daily_metrics1['clicks'] / daily_metrics1['Impressions']) * 100
-                        daily_metrics1['CPM'] = (daily_metrics1['spend'] / daily_metrics1['Impressions']) * 1000
-                        daily_metrics1['ROAS'] = (daily_metrics1['Revenue'] / daily_metrics1['spend'])
+                        daily_metrics1['CTR'] = ((daily_metrics1['clicks'] / daily_metrics1['Impressions']) * 100).round(2).astype(str) + '%'
+                        daily_metrics1['CPM'] = ((daily_metrics1['spend'] / daily_metrics1['Impressions']) * 1000).round(2)
+                        daily_metrics1['ROAS'] = (daily_metrics1['Revenue'] / daily_metrics1['spend']).round(2)
 
                         daily_metrics2 = filtered_data2.groupby('Date').agg({
                             'clicks': 'sum',
@@ -633,9 +755,9 @@ def main():
                             'spend': 'sum',
                             'Revenue': 'sum'
                         }).reset_index()
-                        daily_metrics2['CTR'] = (daily_metrics2['clicks'] / daily_metrics2['Impressions']) * 100
-                        daily_metrics2['CPM'] = (daily_metrics2['spend'] / daily_metrics2['Impressions']) * 1000
-                        daily_metrics2['ROAS'] = (daily_metrics2['Revenue'] / daily_metrics2['spend'])
+                        daily_metrics2['CTR'] = ((daily_metrics2['clicks'] / daily_metrics2['Impressions']) * 100).round(2).astype(str) + '%'
+                        daily_metrics2['CPM'] = ((daily_metrics2['spend'] / daily_metrics2['Impressions']) * 1000).round(2)
+                        daily_metrics2['ROAS'] = (daily_metrics2['Revenue'] / daily_metrics2['spend']).round(2)
 
                         fig = go.Figure()
                         fig.add_trace(go.Scatter(x=daily_metrics1['Date'], y=daily_metrics1['CPM'],
@@ -733,9 +855,9 @@ def main():
                         }).reset_index()
 
                         # Calculate CTR & CPM on the aggregated data
-                        product_metrics['CTR'] = (product_metrics['clicks'] / product_metrics['Impressions']) * 100
-                        product_metrics['CPM'] = (product_metrics['spend'] / product_metrics['Impressions']) * 1000
-                        product_metrics['ROAS'] = (product_metrics['Revenue'] / product_metrics['spend'])
+                        product_metrics['CTR'] = ((product_metrics['clicks'] / product_metrics['Impressions']) * 100).round(2).astype(str) + '%'
+                        product_metrics['CPM'] = ((product_metrics['spend'] / product_metrics['Impressions']) * 1000).round(2)
+                        product_metrics['ROAS'] = (product_metrics['Revenue'] / product_metrics['spend']).round(2)
 
                         # Create a line chart for the selected metric
                         fig_1 = px.line(product_metrics, x='Date', y=selected_metric, color='Product Cat', title=f"{selected_metric} Trends by Product Category")
