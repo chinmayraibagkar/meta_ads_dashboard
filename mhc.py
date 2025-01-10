@@ -202,30 +202,31 @@ def main():
                 one_month_ago = datetime.now().date() - timedelta(days=30)
 
                 # Filter data for yesterday and last 30 days
-                st.session_state.last_month_data = st.session_state.last_90d_data[
+                st.session_state.last_30d_data = st.session_state.last_90d_data[
                     (st.session_state.last_90d_data['Reporting starts'].dt.date > one_month_ago) & 
                     (st.session_state.last_90d_data['Reporting starts'].dt.date <= datetime.now().date())
                 ].copy()
                 
                 # Filter data for yesterday and last 7 days
-                st.session_state.yesterday_data = st.session_state.last_month_data[
-                    st.session_state.last_month_data['Reporting starts'].dt.date == yesterday
+                st.session_state.yesterday_data = st.session_state.last_90d_data[
+                    st.session_state.last_90d_data['Reporting starts'].dt.date == yesterday
                 ].copy()
                 
-                st.session_state.last_7_days_data = st.session_state.last_month_data[
-                    (st.session_state.last_month_data['Reporting starts'].dt.date > seven_days_ago) & 
-                    (st.session_state.last_month_data['Reporting starts'].dt.date <= datetime.now().date())
+                st.session_state.last_7_days_data = st.session_state.last_90d_data[
+                    (st.session_state.last_90d_data['Reporting starts'].dt.date > seven_days_ago) & 
+                    (st.session_state.last_90d_data['Reporting starts'].dt.date <= datetime.now().date())
                 ].copy()
                 st.session_state.mapping_ref = get_mapping_ref("1RxPhCwzVHHU_Nc1APUlpeVc3GaARo4BDXFYY1CDYKu8", "Mapping_ref")
         
             # map the data with the mapping reference
             if all(data is not None for data in [st.session_state.yesterday_data, 
-                                            st.session_state.last_7_days_data, 
-                                            st.session_state.last_month_data,
+                                            st.session_state.last_7_days_data,
+                                            st.session_state.last_30d_data, 
+                                            st.session_state.last_90d_data,
                                             st.session_state.mapping_ref]):
                 st.session_state.yesterday_data = pd.merge(st.session_state.yesterday_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
                 st.session_state.last_7_days_data = pd.merge(st.session_state.last_7_days_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
-                st.session_state.last_month_data = pd.merge(st.session_state.last_month_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
+                st.session_state.last_30d_data = pd.merge(st.session_state.last_30d_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
                 st.session_state.last_90d_data = pd.merge(st.session_state.last_90d_data, st.session_state.mapping_ref, on=['Account name','Campaign name','Ad Set Name','Ad name'], how='left')
 
         # Debug information
@@ -234,45 +235,46 @@ def main():
         #         st.write("Yesterday's Data Shape:", st.session_state.yesterday_data.shape)
         #     if st.session_state.last_7_days_data is not None:
         #         st.write("Weekly Data Shape:", st.session_state.last_7_days_data.shape)
-        #     if st.session_state.last_month_data is not None:
-        #         st.write("Monthly Data Shape:", st.session_state.last_month_data.shape)
+        #     if st.session_state.last_90d_data is not None:
+        #         st.write("Monthly Data Shape:", st.session_state.last_90d_data.shape)
         #     if st.session_state.mapping_ref is not None:
         #         st.write("Mapping Reference Shape:", st.session_state.mapping_ref.shape)
         
         # Display metrics and charts only if we have valid data
         if all(data is not None for data in [st.session_state.yesterday_data, 
-                                            st.session_state.last_7_days_data, 
-                                            st.session_state.last_month_data,
+                                            st.session_state.last_7_days_data,
+                                            st.session_state.last_30d_data, 
+                                            st.session_state.last_90d_data,
                                             st.session_state.mapping_ref]):
             
             # change coluumn name 'Amount spent (INR)' to 'spend'
             st.session_state.yesterday_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
             st.session_state.last_7_days_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
-            st.session_state.last_month_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
+            st.session_state.last_30d_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
             st.session_state.last_90d_data.rename(columns={'Amount spent (INR)': 'spend'}, inplace=True)
 
             # Clicks (all) to clicks
             st.session_state.yesterday_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
             st.session_state.last_7_days_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
-            st.session_state.last_month_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
+            st.session_state.last_30d_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
             st.session_state.last_90d_data.rename(columns={'Link clicks': 'clicks'}, inplace=True)
 
             # Reporting Starts to Date
             st.session_state.yesterday_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
             st.session_state.last_7_days_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
-            st.session_state.last_month_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
+            st.session_state.last_30d_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
             st.session_state.last_90d_data.rename(columns={'Reporting starts': 'Date'}, inplace=True)
 
             # Add column "Revenue" by multiplying "Website Purchase ROAS" with "Spend" and rounding
             st.session_state.yesterday_data['Revenue'] = (st.session_state.yesterday_data['Website purchase ROAS (return on ad spend)'] * st.session_state.yesterday_data['spend']).round()
             st.session_state.last_7_days_data['Revenue'] = (st.session_state.last_7_days_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_7_days_data['spend']).round() 
-            st.session_state.last_month_data['Revenue'] = (st.session_state.last_month_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_month_data['spend']).round()
+            st.session_state.last_30d_data['Revenue'] = (st.session_state.last_30d_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_30d_data['spend']).round()
             st.session_state.last_90d_data['Revenue'] = (st.session_state.last_90d_data['Website purchase ROAS (return on ad spend)'] * st.session_state.last_90d_data['spend']).round()
 
             # round off spend
             st.session_state.yesterday_data['spend'] = st.session_state.yesterday_data['spend'].round()
             st.session_state.last_7_days_data['spend'] = st.session_state.last_7_days_data['spend'].round()
-            st.session_state.last_month_data['spend'] = st.session_state.last_month_data['spend'].round()
+            st.session_state.last_30d_data['spend'] = st.session_state.last_30d_data['spend'].round()
             st.session_state.last_90d_data['spend'] = st.session_state.last_90d_data['spend'].round()
 
 
@@ -283,13 +285,13 @@ def main():
                 
                 st.subheader("Last 7 Days Data")
                 st.dataframe(st.session_state.last_7_days_data)
-                
-                st.subheader("Last 30 Days Data")
-                st.dataframe(st.session_state.last_month_data)
 
+                st.subheader("Last 30 Days Data")
+                st.dataframe(st.session_state.last_30d_data)
+                
                 st.subheader("Last 90 Days Data")
                 st.dataframe(st.session_state.last_90d_data)
-            
+
             # Calculate and display metrics
             try:
                 tab1, tab2, tab3 = st.tabs(["Home", "Comparative Views", "Product-Category View"])
@@ -317,7 +319,7 @@ def main():
                             
 
                         # Group data by Product categories and plot trendline for top 5 categories
-                        product_cat_metrics = st.session_state.last_month_data.groupby('Product Cat').agg({
+                        product_cat_metrics = st.session_state.last_90d_data.groupby('Product Cat').agg({
                             'spend': 'sum',
                             'clicks': 'sum',
                             'Revenue': 'sum'
@@ -332,7 +334,7 @@ def main():
                         df_7 = st.session_state.last_7_days_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
                         df_7['ROAS_7'] = df_7['Revenue'] / df_7['spend']
 
-                        df_30 = st.session_state.last_month_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                        df_30 = st.session_state.last_30d_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
                         df_30['ROAS_30'] = df_30['Revenue'] / df_30['spend']
 
                         # Merge
@@ -366,7 +368,7 @@ def main():
 
                         # Group data and calculate average spend
                         if st.checkbox("Show Categories with Spends Above Average"):
-                            product_cat_metrics_avg = st.session_state.last_month_data.groupby('Product Cat').agg({
+                            product_cat_metrics_avg = st.session_state.last_90d_data.groupby('Product Cat').agg({
                                 'spend': 'sum',
                                 'clicks': 'sum',
                                 'Revenue': 'sum'
@@ -385,7 +387,7 @@ def main():
                             df_7_avg = st.session_state.last_7_days_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
                             df_7_avg['ROAS_7'] = df_7_avg['Revenue'] / df_7_avg['spend']
 
-                            df_30_avg = st.session_state.last_month_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
+                            df_30_avg = st.session_state.last_30d_data.groupby('Product Cat', as_index=False).agg({'spend':'sum','Revenue':'sum'})
                             df_30_avg['ROAS_30'] = df_30_avg['Revenue'] / df_30_avg['spend']
 
                             # Merge for the above-average categories
@@ -433,68 +435,68 @@ def main():
                         col1, col2, col3, col4, col5 = st.columns(5)
                         
                         with col1:
-                            account_names = st.session_state.last_month_data['Account name'].unique()
+                            account_names = st.session_state.last_90d_data['Account name'].unique()
                             selected_accounts = st.multiselect("Select Account Name(s)", account_names)
 
                         with col2:
-                            campaign_filter = st.session_state.last_month_data['Account name'].isin(selected_accounts) if selected_accounts else True
-                            campaign_names = st.session_state.last_month_data[campaign_filter]['Campaign name'].unique()
+                            campaign_filter = st.session_state.last_90d_data['Account name'].isin(selected_accounts) if selected_accounts else True
+                            campaign_names = st.session_state.last_90d_data[campaign_filter]['Campaign name'].unique()
                             selected_campaigns = st.multiselect("Select Campaign Name(s)", campaign_names)
 
                         with col3:
                             adset_filter = (
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts) if selected_accounts else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns) if selected_campaigns else True)
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts) if selected_accounts else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns) if selected_campaigns else True)
                             )
-                            adset_names = st.session_state.last_month_data[adset_filter]['Ad Set Name'].unique()
+                            adset_names = st.session_state.last_90d_data[adset_filter]['Ad Set Name'].unique()
                             selected_adsets = st.multiselect("Select Ad Set Name(s)", adset_names)
 
                         with col4:
                             ad_filter = (
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts) if selected_accounts else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns) if selected_campaigns else True) &
-                            (st.session_state.last_month_data['Ad Set Name'].isin(selected_adsets) if selected_adsets else True)
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts) if selected_accounts else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns) if selected_campaigns else True) &
+                            (st.session_state.last_90d_data['Ad Set Name'].isin(selected_adsets) if selected_adsets else True)
                             )
-                            ad_names = st.session_state.last_month_data[ad_filter]['Ad name'].unique()
+                            ad_names = st.session_state.last_90d_data[ad_filter]['Ad name'].unique()
                             selected_ads = st.multiselect("Select Ad Name(s)", ad_names)
 
                         with col5:
-                            creative_types = st.session_state.last_month_data['Creative Type'].unique()
+                            creative_types = st.session_state.last_90d_data['Creative Type'].unique()
                             selected_creative_types = st.multiselect("Select Creative Type(s)", creative_types)
 
                         # Second row of filters
                         col6, col7, col8, col9, col10 = st.columns(5)
 
                         with col6:
-                            creative_themes = st.session_state.last_month_data['Creative Theme'].unique()
+                            creative_themes = st.session_state.last_90d_data['Creative Theme'].unique()
                             selected_creative_themes = st.multiselect("Select Creative Theme(s)", creative_themes)
 
                         with col7:
-                            product_cats = st.session_state.last_month_data['Product Cat'].unique()
+                            product_cats = st.session_state.last_90d_data['Product Cat'].unique()
                             selected_product_cats = st.multiselect("Select Product Category(s)", product_cats)
 
                         with col8:
-                            influencer_names = st.session_state.last_month_data['Influencer Name'].unique()
+                            influencer_names = st.session_state.last_90d_data['Influencer Name'].unique()
                             selected_influencers = st.multiselect("Select Influencer(s)", influencer_names)
 
                         with col9:
-                            campaign_objectives = st.session_state.last_month_data['Campaign Objective'].unique()
+                            campaign_objectives = st.session_state.last_90d_data['Campaign Objective'].unique()
                             selected_objectives = st.multiselect("Select Campaign Objective(s)", campaign_objectives)
 
                         with col10:
                             st.write("")  # Empty column for alignment
 
                         # Update the filter conditions for the data
-                        filtered_data = st.session_state.last_month_data[
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts) if selected_accounts else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns) if selected_campaigns else True) &
-                            (st.session_state.last_month_data['Ad Set Name'].isin(selected_adsets) if selected_adsets else True) &
-                            (st.session_state.last_month_data['Ad name'].isin(selected_ads) if selected_ads else True) &
-                            (st.session_state.last_month_data['Creative Type'].isin(selected_creative_types) if selected_creative_types else True) &
-                            (st.session_state.last_month_data['Creative Theme'].isin(selected_creative_themes) if selected_creative_themes else True) &
-                            (st.session_state.last_month_data['Product Cat'].isin(selected_product_cats) if selected_product_cats else True) &
-                            (st.session_state.last_month_data['Influencer Name'].isin(selected_influencers) if selected_influencers else True) &
-                            (st.session_state.last_month_data['Campaign Objective'].isin(selected_objectives) if selected_objectives else True)
+                        filtered_data = st.session_state.last_90d_data[
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts) if selected_accounts else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns) if selected_campaigns else True) &
+                            (st.session_state.last_90d_data['Ad Set Name'].isin(selected_adsets) if selected_adsets else True) &
+                            (st.session_state.last_90d_data['Ad name'].isin(selected_ads) if selected_ads else True) &
+                            (st.session_state.last_90d_data['Creative Type'].isin(selected_creative_types) if selected_creative_types else True) &
+                            (st.session_state.last_90d_data['Creative Theme'].isin(selected_creative_themes) if selected_creative_themes else True) &
+                            (st.session_state.last_90d_data['Product Cat'].isin(selected_product_cats) if selected_product_cats else True) &
+                            (st.session_state.last_90d_data['Influencer Name'].isin(selected_influencers) if selected_influencers else True) &
+                            (st.session_state.last_90d_data['Campaign Objective'].isin(selected_objectives) if selected_objectives else True)
                         ]
 
                         # Display monthly performance chart
@@ -649,64 +651,64 @@ def main():
 
                         with col1:
                             st.write("Data Selection 1")
-                            account_names = st.session_state.last_month_data['Account name'].unique()
+                            account_names = st.session_state.last_90d_data['Account name'].unique()
                             selected_accounts1 = st.multiselect("Select Account Name(s)", account_names, key="accounts1")
                             
-                            campaign_filter = st.session_state.last_month_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True
-                            campaign_names = st.session_state.last_month_data[campaign_filter]['Campaign name'].unique()
+                            campaign_filter = st.session_state.last_90d_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True
+                            campaign_names = st.session_state.last_90d_data[campaign_filter]['Campaign name'].unique()
                             selected_campaigns1 = st.multiselect("Select Campaign Name(s)", campaign_names, key="campaigns1")
 
                             adset_filter = (
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns1) if selected_campaigns1 else True)
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns1) if selected_campaigns1 else True)
                             )
-                            adset_names = st.session_state.last_month_data[adset_filter]['Ad Set Name'].unique()
+                            adset_names = st.session_state.last_90d_data[adset_filter]['Ad Set Name'].unique()
                             selected_adsets1 = st.multiselect("Select Ad Set Name(s)", adset_names, key="adsets1")
 
                             ad_filter = (
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns1) if selected_campaigns1 else True) &
-                            (st.session_state.last_month_data['Ad Set Name'].isin(selected_adsets1) if selected_adsets1 else True)
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns1) if selected_campaigns1 else True) &
+                            (st.session_state.last_90d_data['Ad Set Name'].isin(selected_adsets1) if selected_adsets1 else True)
                             )
-                            ad_names = st.session_state.last_month_data[ad_filter]['Ad name'].unique()
+                            ad_names = st.session_state.last_90d_data[ad_filter]['Ad name'].unique()
                             selected_ads1 = st.multiselect("Select Ad Name(s)", ad_names, key="ads1")
 
-                            creative_types = st.session_state.last_month_data['Creative Type'].unique()
+                            creative_types = st.session_state.last_90d_data['Creative Type'].unique()
                             selected_creative_types1 = st.multiselect("Select Creative Type(s)", creative_types, key="creative_types1")
 
-                            creative_themes = st.session_state.last_month_data['Creative Theme'].unique()
+                            creative_themes = st.session_state.last_90d_data['Creative Theme'].unique()
                             selected_creative_themes1 = st.multiselect("Select Creative Theme(s)", creative_themes, key="creative_themes1")
 
-                            product_cats = st.session_state.last_month_data['Product Cat'].unique()
+                            product_cats = st.session_state.last_90d_data['Product Cat'].unique()
                             selected_product_cats1 = st.multiselect("Select Product Category(s)", product_cats, key="product_cats1")
 
-                            influencer_names = st.session_state.last_month_data['Influencer Name'].unique()
+                            influencer_names = st.session_state.last_90d_data['Influencer Name'].unique()
                             selected_influencers1 = st.multiselect("Select Influencer(s)", influencer_names, key="influencers1")
 
-                            campaign_objectives = st.session_state.last_month_data['Campaign Objective'].unique()
+                            campaign_objectives = st.session_state.last_90d_data['Campaign Objective'].unique()
                             selected_objectives1 = st.multiselect("Select Campaign Objective(s)", campaign_objectives, key="objectives1")
 
                         with col2:
                             st.write("Data Selection 2")
                             selected_accounts2 = st.multiselect("Select Account Name(s)", account_names, key="accounts2")
                             
-                            campaign_filter = st.session_state.last_month_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True
-                            campaign_names = st.session_state.last_month_data[campaign_filter]['Campaign name'].unique()
+                            campaign_filter = st.session_state.last_90d_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True
+                            campaign_names = st.session_state.last_90d_data[campaign_filter]['Campaign name'].unique()
                             selected_campaigns2 = st.multiselect("Select Campaign Name(s)", campaign_names, key="campaigns2")
 
                             adset_filter = (
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns2) if selected_campaigns2 else True)
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns2) if selected_campaigns2 else True)
                             )
-                            adset_names = st.session_state.last_month_data[adset_filter]['Ad Set Name'].unique()
+                            adset_names = st.session_state.last_90d_data[adset_filter]['Ad Set Name'].unique()
                             selected_adsets2 = st.multiselect("Select Ad Set Name(s)", adset_names, key="adsets2")
 
                             ad_filter = (
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns2) if selected_campaigns2 else True) &
-                            (st.session_state.last_month_data['Ad Set Name'].isin(selected_adsets2) if selected_adsets2 else True)
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns2) if selected_campaigns2 else True) &
+                            (st.session_state.last_90d_data['Ad Set Name'].isin(selected_adsets2) if selected_adsets2 else True)
                             )
-                            ad_names = st.session_state.last_month_data[ad_filter]['Ad name'].unique()
+                            ad_names = st.session_state.last_90d_data[ad_filter]['Ad name'].unique()
                             selected_ads2 = st.multiselect("Select Ad Name(s)", ad_names, key="ads2")
 
                             selected_creative_types2 = st.multiselect("Select Creative Type(s)", creative_types, key="creative_types2")
@@ -715,28 +717,28 @@ def main():
                             selected_influencers2 = st.multiselect("Select Influencer(s)", influencer_names, key="influencers2")
                             selected_objectives2 = st.multiselect("Select Campaign Objective(s)", campaign_objectives, key="objectives2")
 
-                        filtered_data1 = st.session_state.last_month_data[
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns1) if selected_campaigns1 else True) &
-                            (st.session_state.last_month_data['Ad Set Name'].isin(selected_adsets1) if selected_adsets1 else True) &
-                            (st.session_state.last_month_data['Ad name'].isin(selected_ads1) if selected_ads1 else True) &
-                            (st.session_state.last_month_data['Creative Type'].isin(selected_creative_types1) if selected_creative_types1 else True) &
-                            (st.session_state.last_month_data['Creative Theme'].isin(selected_creative_themes1) if selected_creative_themes1 else True) &
-                            (st.session_state.last_month_data['Product Cat'].isin(selected_product_cats1) if selected_product_cats1 else True) &
-                            (st.session_state.last_month_data['Influencer Name'].isin(selected_influencers1) if selected_influencers1 else True) &
-                            (st.session_state.last_month_data['Campaign Objective'].isin(selected_objectives1) if selected_objectives1 else True)
+                        filtered_data1 = st.session_state.last_90d_data[
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts1) if selected_accounts1 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns1) if selected_campaigns1 else True) &
+                            (st.session_state.last_90d_data['Ad Set Name'].isin(selected_adsets1) if selected_adsets1 else True) &
+                            (st.session_state.last_90d_data['Ad name'].isin(selected_ads1) if selected_ads1 else True) &
+                            (st.session_state.last_90d_data['Creative Type'].isin(selected_creative_types1) if selected_creative_types1 else True) &
+                            (st.session_state.last_90d_data['Creative Theme'].isin(selected_creative_themes1) if selected_creative_themes1 else True) &
+                            (st.session_state.last_90d_data['Product Cat'].isin(selected_product_cats1) if selected_product_cats1 else True) &
+                            (st.session_state.last_90d_data['Influencer Name'].isin(selected_influencers1) if selected_influencers1 else True) &
+                            (st.session_state.last_90d_data['Campaign Objective'].isin(selected_objectives1) if selected_objectives1 else True)
                         ]
 
-                        filtered_data2 = st.session_state.last_month_data[
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns2) if selected_campaigns2 else True) &
-                            (st.session_state.last_month_data['Ad Set Name'].isin(selected_adsets2) if selected_adsets2 else True) &
-                            (st.session_state.last_month_data['Ad name'].isin(selected_ads2) if selected_ads2 else True) &
-                            (st.session_state.last_month_data['Creative Type'].isin(selected_creative_types2) if selected_creative_types2 else True) &
-                            (st.session_state.last_month_data['Creative Theme'].isin(selected_creative_themes2) if selected_creative_themes2 else True) &
-                            (st.session_state.last_month_data['Product Cat'].isin(selected_product_cats2) if selected_product_cats2 else True) &
-                            (st.session_state.last_month_data['Influencer Name'].isin(selected_influencers2) if selected_influencers2 else True) &
-                            (st.session_state.last_month_data['Campaign Objective'].isin(selected_objectives2) if selected_objectives2 else True)
+                        filtered_data2 = st.session_state.last_90d_data[
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts2) if selected_accounts2 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns2) if selected_campaigns2 else True) &
+                            (st.session_state.last_90d_data['Ad Set Name'].isin(selected_adsets2) if selected_adsets2 else True) &
+                            (st.session_state.last_90d_data['Ad name'].isin(selected_ads2) if selected_ads2 else True) &
+                            (st.session_state.last_90d_data['Creative Type'].isin(selected_creative_types2) if selected_creative_types2 else True) &
+                            (st.session_state.last_90d_data['Creative Theme'].isin(selected_creative_themes2) if selected_creative_themes2 else True) &
+                            (st.session_state.last_90d_data['Product Cat'].isin(selected_product_cats2) if selected_product_cats2 else True) &
+                            (st.session_state.last_90d_data['Influencer Name'].isin(selected_influencers2) if selected_influencers2 else True) &
+                            (st.session_state.last_90d_data['Campaign Objective'].isin(selected_objectives2) if selected_objectives2 else True)
                         ]
 
                         daily_metrics1 = filtered_data1.groupby('Date').agg({
@@ -821,16 +823,16 @@ def main():
 
                         # Here i want to create a multiselect dropdown for Product Category and a single select option for metric, and the data for the same will be displayed in a chart. Multiple lines for each product category as selected
                         # Account selection
-                        account_names_1 = st.session_state.last_month_data['Account name'].unique()
+                        account_names_1 = st.session_state.last_90d_data['Account name'].unique()
                         selected_accounts_1 = st.multiselect("Select Account(s)", account_names_1, key="product_accounts")
                         
                         # Campaign selection
-                        campaign_filter_1 = st.session_state.last_month_data['Account name'].isin(selected_accounts_1) if selected_accounts_1 else True
-                        campaign_names_1 = st.session_state.last_month_data[campaign_filter_1]['Campaign name'].unique()
+                        campaign_filter_1 = st.session_state.last_90d_data['Account name'].isin(selected_accounts_1) if selected_accounts_1 else True
+                        campaign_names_1 = st.session_state.last_90d_data[campaign_filter_1]['Campaign name'].unique()
                         selected_campaigns_1 = st.multiselect("Select Campaign(s)", campaign_names_1, key="product_campaigns")
 
                         # Product category selection 
-                        product_categories = st.session_state.last_month_data['Product Cat'].unique()
+                        product_categories = st.session_state.last_90d_data['Product Cat'].unique()
                         selected_product_categories = st.multiselect("Select Product Category(s)", product_categories, key="product_categories")
 
                         # Metric selection
@@ -838,12 +840,12 @@ def main():
                         selected_metric = st.selectbox("Select Metric", metrics)
 
                         # Filter data based on all selections and date range
-                        filtered_data_1 = st.session_state.last_month_data[
-                            (st.session_state.last_month_data['Account name'].isin(selected_accounts_1) if selected_accounts_1 else True) &
-                            (st.session_state.last_month_data['Campaign name'].isin(selected_campaigns_1) if selected_campaigns_1 else True) &
-                            (st.session_state.last_month_data['Product Cat'].isin(selected_product_categories)) &
-                            (pd.to_datetime(st.session_state.last_month_data['Date']).dt.date >= start_date) &
-                            (pd.to_datetime(st.session_state.last_month_data['Date']).dt.date <= end_date)
+                        filtered_data_1 = st.session_state.last_90d_data[
+                            (st.session_state.last_90d_data['Account name'].isin(selected_accounts_1) if selected_accounts_1 else True) &
+                            (st.session_state.last_90d_data['Campaign name'].isin(selected_campaigns_1) if selected_campaigns_1 else True) &
+                            (st.session_state.last_90d_data['Product Cat'].isin(selected_product_categories)) &
+                            (pd.to_datetime(st.session_state.last_90d_data['Date']).dt.date >= start_date) &
+                            (pd.to_datetime(st.session_state.last_90d_data['Date']).dt.date <= end_date)
                         ]
 
                         # Group data by Date and Product Category and calculate aggregated metrics
@@ -881,7 +883,8 @@ def main():
             st.cache_data.clear()
             del st.session_state.yesterday_data
             del st.session_state.last_7_days_data
-            del st.session_state.last_month_data
+            del st.session_state.last_30d_data
+            del st.session_state.last_90d_data
             st.experimental_rerun()
 
 if __name__ == "__main__":
