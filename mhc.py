@@ -885,7 +885,6 @@ def main():
             del st.session_state.last_7_days_data
             del st.session_state.last_30d_data
             del st.session_state.last_90d_data
-            st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
